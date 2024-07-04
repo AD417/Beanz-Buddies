@@ -14,7 +14,7 @@ class Entry:
 
     met: bool = False
 
-    def random_weight(self: Entry, now: date) -> float:
+    def pair_weight(self: Entry, now: date) -> float:
         elapsed_time = now - self.last_meeting
 
         # If the last meeting was more recent, don't bother.

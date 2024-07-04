@@ -1,5 +1,5 @@
-from CRUD.database import Database
-from CRUD.saving import save, load
+from datetime import date
+from CRUD import *
 
 db = Database()
 
@@ -9,7 +9,7 @@ names = [
     "Chrissy",
     "Darwin",
     "Ella",
-    "Fernando",
+    "Frank",
     "Gavin",
     "Heela",
     "Igor",
@@ -27,4 +27,5 @@ save(db, "testcat.json")
 db2 = load("testcat.json")
 
 print()
-pprint(db.get_2D_map()["Ada"])
+for p in pair(db2, names, date.today()):
+    print(p)

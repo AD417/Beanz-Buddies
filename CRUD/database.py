@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import date
 
 from CRUD.entry import Entry
 
@@ -73,6 +74,30 @@ class Database:
 
         return data
     
+    def get_filtered_2D_map(self: Database, names: list[str]):
+        """Get all pairs in a 2D map that only use the provided names.
+        Instead of using `db.get_pair("Ada","Bobby")`, 
+        you can use `map["Ada"]["Bobby"]`."""
+
+        data: dict[str, dict[str, Entry]] = {}
+
+        for pair in self._data.keys():
+            first, second = pair
+
+            if first not in names or second not in names:
+                continue
+
+            if first not in data:
+                data[first] = {}
+            if second not in data:
+                data[second] = {}
+
+            data[first][second] = self._data[pair]
+            data[second][first] = self._data[pair]
+
+        return data
+
+    
     def __iter__(self: Database):
         return iter(self._data)
 
@@ -83,4 +108,13 @@ class Database:
             first, second = second, first
         
         self._data[(first, second)] = entry
+
+
+    # Other stuff
+
+    def pair_weight(self: Database, first: str, second: str, now: date) -> float:
+        """Determine the weight given to a pair of people."""
+        
+        entry = self.get_pair(first, second)
+        return entry.pair_weight(now)
 
