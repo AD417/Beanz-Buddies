@@ -72,6 +72,9 @@ class Database:
             data[second][first] = self._data[pair]
 
         return data
+    
+    def __iter__(self: Database):
+        return iter(self._data)
 
     # UPDATING
 
@@ -80,3 +83,4 @@ class Database:
             first, second = second, first
         
         self._data[(first, second)] = entry
+

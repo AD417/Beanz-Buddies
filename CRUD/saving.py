@@ -1,3 +1,4 @@
+from datetime import datetime
 import json
 
 from CRUD.database import Database
@@ -9,7 +10,9 @@ def load(filepath: str) -> Database:
 
     db = Database()
     for key in data:
-        entry = Entry(**data[key])
+        entry = data[key]
+        entry["last_meeting"] = datetime.strptime(entry["last_meeting"], "%Y-%m-%d").date()
+        entry = Entry(**entry)
         first, second = key.split("\t")
         db.set_pair(first, second, entry)
 
@@ -17,9 +20,9 @@ def load(filepath: str) -> Database:
 
 def save(db: Database, filepath: str):
     data = {}
-    for pair in db._data:
+    for pair in db:
         first, second = pair
-        data[f"{first}\t{second}"] = db._data[pair].to_dict()
+        data[f"{first}\t{second}"] = db.get_pair(first, second).to_dict()
     
     with open(filepath, "w") as f:
         json.dump(data, f)
