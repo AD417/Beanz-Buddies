@@ -1,4 +1,5 @@
 from CRUD.database import Database
+from CRUD.saving import save, load
 
 db = Database()
 
@@ -19,4 +20,11 @@ db.add_all_pairs(names)
 
 from pprint import pprint
 
-pprint(db.get_2D_map())
+pprint(db.get_2D_map()["Ada"])
+
+save(db, "testcat.json")
+
+db2 = load("testcat.json")
+
+print()
+pprint(db.get_2D_map()["Ada"])

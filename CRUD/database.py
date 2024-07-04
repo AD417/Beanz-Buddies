@@ -6,8 +6,9 @@ from CRUD.entry import Entry
 class Database:
     """A basic CRUD system to store all pairing entries."""
 
-    def __init__(self: Database) -> None:
+    def __init__(self: Database, filepath: str | None = None) -> None:
         self._data: dict[tuple[str, str], Entry] = {}
+
 
     # CREATE
 
@@ -72,4 +73,10 @@ class Database:
 
         return data
 
+    # UPDATING
 
+    def set_pair(self: Database, first: str, second: str, entry: Entry):
+        if first < second: 
+            first, second = second, first
+        
+        self._data[(first, second)] = entry
