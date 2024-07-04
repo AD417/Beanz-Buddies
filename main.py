@@ -35,24 +35,13 @@ names = [
     "Darwin Tran",
     "Tyler Samay",
     "Ella Soccoli",
-    "Charlotte George"
+    "Charlotte George",
+    "Bonus guy"
 ]
 
-# db.add_all_pairs(names)
+db = load("testcat1.json")
 
 all_pairs: set[tuple[str]] = set()
-day = date.today()
-delta = timedelta(days=2)
+day = date.today() + timedelta(days=202)
 
-for i in range(100):
-    pairs = pair_names(db, names, day)
-
-    for p in pairs:
-        all_pairs.add(p)
-        first, second = p
-        db.set_pair_date(first, second, day)
-
-    print(pairs)
-    day += delta
-
-save(db, "testcat.json")
+print(pair_names(db, names, day))

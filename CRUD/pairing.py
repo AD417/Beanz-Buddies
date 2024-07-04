@@ -31,7 +31,16 @@ def pairing_score(db: Database, pairs: list[tuple[str]], now: date) -> float:
     """
     return reduce(lambda x, y: x * db.pair_weight(y[0], y[1], now), pairs, 1)
 
-def pair_names(db: Database, names: list[str], now: date, trials: int = 100):
+def is_good_swap(db: Database, pair1: tuple[str], pair2: tuple[str], now: date) -> bool:
+    unique_names = set()
+    unique_names.update(pair1, pair2)
+    if len(unique_names) != 4: return False
+    score_now = db.pair_weight(pair1[0], pair1[1], now) * db.pair_weight(pair2[0], pair2[1], now)
+    score_next = db.pair_weight(pair1[0], pair2[0], now) * db.pair_weight(pair1[1], pair2[1], now)
+
+    return score_next > score_now
+
+def pair_names(db: Database, names: list[str], now: date, trials: int = 100, swaps: int = 100):
     """
     Use a Monte Carlo simulation to generate a "good" pairing of
     all involved names. 
@@ -39,10 +48,20 @@ def pair_names(db: Database, names: list[str], now: date, trials: int = 100):
     best_pairs = []
     best_score = -1
 
-    # TODO: A random-choice gradient descent algorithm might work better here.
-    # It would still need multiple trials, but would make good pairings better.
     for _ in range(trials):
         pairs = single_pairing(db, names.copy(), now)
+
+        for _ in range(swaps):
+            # Randomly pick 2 pairs.
+            pair1, pair2 = random.choices(pairs, k=2)
+            # Does swapping them improve the results, however marginally?
+            if not is_good_swap(db, pair1, pair2, now): continue
+            # If so, do it. 
+            # TODO: use a set instead of a list.
+            pairs.remove(pair1)
+            pairs.remove(pair2)
+            pairs += [*zip(pair1, pair2)]
+
         score = pairing_score(db, pairs, now)
 
         if score <= best_score: continue
@@ -50,4 +69,4 @@ def pair_names(db: Database, names: list[str], now: date, trials: int = 100):
         best_pairs = pairs
 
     print(best_score)
-    return best_pairs
+    return best_pairs#
