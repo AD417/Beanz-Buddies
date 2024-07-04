@@ -109,6 +109,10 @@ class Database:
         
         self._data[(first, second)] = entry
 
+    def set_pair_date(self: Database, first: str, second: str, day: date):
+        entry = self.get_pair(first, second)
+        entry = entry.update_last_meeting(day, True) # TODO
+        self.set_pair(first, second, entry)
 
     # Other stuff
 

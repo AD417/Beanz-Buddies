@@ -1,7 +1,6 @@
 from datetime import date
 from functools import reduce
 from CRUD.database import Database
-from CRUD.entry import Entry
 
 import random
 
@@ -13,7 +12,12 @@ def single_pairing(db: Database, names: list[str], now: date) -> list[tuple[str]
         names.remove(first)
         weights = [db.pair_weight(first, second, now) for second in names]
 
-        second = random.choices(names, weights, k=1)[0]
+        if sum(weights) == 0:
+            # We dun goofd
+            second = names[0]
+        else:
+            second = random.choices(names, weights, k=1)[0]
+        
         pairs += [(first, second)]
         names.remove(second)
     
@@ -27,7 +31,7 @@ def pairing_score(db: Database, pairs: list[tuple[str]], now: date) -> float:
     """
     return reduce(lambda x, y: x * db.pair_weight(y[0], y[1], now), pairs, 1)
 
-def pair(db: Database, names: list[str], now: date, trials: int = 100):
+def pair_names(db: Database, names: list[str], now: date, trials: int = 100):
     """
     Use a Monte Carlo simulation to generate a "good" pairing of
     all involved names. 
@@ -38,11 +42,12 @@ def pair(db: Database, names: list[str], now: date, trials: int = 100):
     # TODO: A random-choice gradient descent algorithm might work better here.
     # It would still need multiple trials, but would make good pairings better.
     for _ in range(trials):
-        pairs = single_pairing(db, names, now)
+        pairs = single_pairing(db, names.copy(), now)
         score = pairing_score(db, pairs, now)
 
         if score <= best_score: continue
         best_score = score
         best_pairs = pairs
 
+    print(best_score)
     return best_pairs
