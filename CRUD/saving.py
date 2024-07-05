@@ -1,31 +1,22 @@
-from datetime import datetime
-import json
+import os
 
-from CRUD.database import Database
-from CRUD.entry import Entry
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-def load(filepath: str) -> Database:
-    try:
-        with open(filepath, "r") as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        return {}
+from CRUD.types import Base
 
-    db = Database()
-    for key in data:
-        entry = data[key]
-        entry["last_meeting"] = datetime.strptime(entry["last_meeting"], "%Y-%m-%d").date()
-        entry = Entry(**entry)
-        first, second = key.split("\t")
-        db.set_pair(first, second, entry)
+# Load environment variables from .env file
+load_dotenv()
 
-    return db
+# Retrieve the database URI from environment variables
+DATABASE_URI = os.getenv('DATABASE_URI')
 
-def save(db: Database, filepath: str):
-    data = {}
-    for pair in db:
-        first, second = pair
-        data[f"{first}\t{second}"] = db.get_pair(first, second).to_dict()
-    
-    with open(filepath, "w") as f:
-        json.dump(data, f)
+# Create the SQLAlchemy engine
+engine = create_engine(DATABASE_URI)
+
+# Create a session factory
+Session = sessionmaker(bind=engine)
+SESSION = Session()
+
+Base.metadata.create_all(engine)

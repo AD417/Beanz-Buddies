@@ -1,105 +1,106 @@
 from __future__ import annotations
 from datetime import date
 
-from CRUD.entry import Entry
+from sqlalchemy import and_, func
+
+from CRUD.types import Pairing, User
+from CRUD.saving import SESSION
 
 
 class Database:
     """A basic CRUD system to store all pairing entries."""
 
-    def __init__(self: Database, filepath: str | None = None) -> None:
-        self._data: dict[tuple[str, str], Entry] = {}
-
-
     # CREATE
 
-    def add_pair(self: Database, first: str, second: str):
+    def add_pair(self: Database, first: str, second: str, time: date = date.today) -> Pairing:
         """Add a match pair to the database."""
-        if first == second: return # No self-pairs
+        if first == second: raise ValueError(f"Cannot pair a person '{first}' with themself!")
 
-        if first < second:
-            first, second = second, first # Sort lexicographically
+        pair = Pairing(member1=first, member2=second, date=date.min)
+        SESSION.add(pair)
+        return pair
 
-        if (first, second) in self._data: return # No overwrites
-
-        self._data[(first, second)] = Entry()
-
-    def add_all_pairs(self: Database, names: list[str]):
-        """Add all possible pairs given a list of names to the database."""
-        for first in range(len(names)):
-            for second in range(first+1, len(names)):
-                self.add_pair(names[first], names[second])
+    def force_save(self: Database):
+        SESSION.commit()
 
     # READ
 
-    def get_pair(self: Database, first: str, second: str) -> Entry:
-        """Get the data for a specific pair from the database."""
-        if first < second:
-            first, second = second, first
+    def get_recent_pair(self: Database, first: str, second: str) -> Pairing | None:
+        """
+        Get the data regarding the most recent pairing of two members in 
+        the database.
+        If no such pairing exists, returns "None".
+        """
+        if first == second: return None
+
+        most_recent = SESSION.query(Pairing) \
+                .filter(Pairing.member1 in (first, second)) \
+                .filter(Pairing.member2 in (first, second)) \
+                .order_by(Pairing.date.desc()) \
+                .first()
+
+        return most_recent
+    
+    def get_all_pairs(self: Database, first: str, second: str) -> list[Pairing]:
+        """Get all data involving this pair. This list is NOT sorted."""
+        if first == second: return []
+        return SESSION.query(Pairing) \
+                .filter(Pairing.member1 in (first, second)) \
+                .filter(Pairing.member2 in (first, second)) \
+                .all()
+
+    def get_pairs_with(self: Database, name: str) -> list[Pairing]:
+        """Get all pairings involving """
+        return SESSION.query(Pairing) \
+                .filter(Pairing.member1 == name or Pairing.member2 == name) \
+                .all()
+    
+    def get_all_pairs_involving(self: Database, names: list[str]) -> list[Pairing]:
+        """Get all pairs that only involve the names listed."""
+        # I blame chatgpt when this breaks.
+        subquery = (
+            SESSION.query(
+                Pairing.member1,
+                Pairing.member2,
+                func.max(Pairing.last_date).label('max_last_date')
+            )
+            .group_by(Pairing.member1, Pairing.member2)
+            .subquery()
+        )
+
+        query = (
+            SESSION.query(Pairing)
+            .join(
+                subquery,
+                and_(
+                    Pairing.member1 == subquery.c.member1,
+                    Pairing.member2 == subquery.c.member2,
+                    Pairing.last_date == subquery.c.max_last_date
+                )
+            )
+            .filter(
+                Pairing.member1.in_(names),
+                Pairing.member2.in_(names)
+            )
+        )
+
+        return query.all()
+
+    def close(save: bool = True):
+        if save: SESSION.commit()
+        SESSION.close()
+
+    # Other stuff
+
+    def pair_weight(self: Database, first: str, second: str, now: date) -> float:
+        """Determine the weight given to a pair of people."""
         
-        if (first, second) not in self._data:
-            self.add_pair(first, second)
-
-        return self._data[(first, second)]
-    
-    def get_all_pairs_with(self: Database, name: str):
-        """Get all pairs involving some person. 
-        Consider for a moment if you should instead use get_2D_map."""
-
-        entries: list[Entry] = []
-
-        for pair in self._data.keys():
-            if pair[0] != name and pair[1] != name: continue
-            entries += [self._data[pair]]
+        pair = self.get_recent_pair(first, second)
+        if pair is None:
+            return 1.0
         
-        return entries
-    
-    def get_2D_map(self: Database):
-        """Get all pairs in a 2D map. 
-        Instead of using `db.get_pair("Ada","Bobby")`, 
-        you can use `map["Ada"]["Bobby"]`."""
-
-        data: dict[str, dict[str, Entry]] = {}
-
-        for pair in self._data.keys():
-            first, second = pair
-
-            if first not in data:
-                data[first] = {}
-            if second not in data:
-                data[second] = {}
-
-            data[first][second] = self._data[pair]
-            data[second][first] = self._data[pair]
-
-        return data
-    
-    def get_filtered_2D_map(self: Database, names: list[str]):
-        """Get all pairs in a 2D map that only use the provided names.
-        Instead of using `db.get_pair("Ada","Bobby")`, 
-        you can use `map["Ada"]["Bobby"]`."""
-
-        data: dict[str, dict[str, Entry]] = {}
-
-        for pair in self._data.keys():
-            first, second = pair
-
-            if first not in names or second not in names:
-                continue
-
-            if first not in data:
-                data[first] = {}
-            if second not in data:
-                data[second] = {}
-
-            data[first][second] = self._data[pair]
-            data[second][first] = self._data[pair]
-
-        return data
-
-    
-    def __iter__(self: Database):
-        return iter(self._data)
+        return pair.weight(now)
+    '''
 
     # UPDATING
 
@@ -110,7 +111,7 @@ class Database:
         self._data[(first, second)] = entry
 
     def set_pair_date(self: Database, first: str, second: str, day: date):
-        entry = self.get_pair(first, second)
+        entry = self.get_recent_pair(first, second)
         entry = entry.update_last_meeting(day, True) # TODO
         self.set_pair(first, second, entry)
 
@@ -119,6 +120,6 @@ class Database:
     def pair_weight(self: Database, first: str, second: str, now: date) -> float:
         """Determine the weight given to a pair of people."""
         
-        entry = self.get_pair(first, second)
+        entry = self.get_recent_pair(first, second)
         return entry.pair_weight(now)
-
+'''

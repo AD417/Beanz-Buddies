@@ -1,4 +1,3 @@
 from CRUD.database import Database
-from CRUD.entry import Entry
-from CRUD.saving import save, load
+from CRUD.types import Pairing
 from CRUD.pairing import generate_pairs

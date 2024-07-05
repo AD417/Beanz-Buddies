@@ -1,10 +1,13 @@
 from datetime import date
 from CRUD import *
-"""
-db = load("beanz_buddies.json")
 
-names = get_slack_channel_members()
-'''[
+from datetime import datetime
+
+start = datetime.now()
+
+db = Database()
+
+names = [
     "Benjamin Piro",
     "Katie Koontz",
     "Nidhi Baindur",
@@ -37,68 +40,20 @@ names = get_slack_channel_members()
     "Tyler Samay",
     "Ella Soccoli",
     "Charlotte George",
-    "Bonus guy"
-]'''
+]
 
-now = date.today()
+print(names)
 
-pairs = generate_pairs(db, names, now)
+db.add_pair("Liriel Bryer", "Emily Caston")
 
-for first, second in pairs:
-    setup_dm(first, second)
-    # ...
+pairs = generate_pairs(db, names, date.today())
 
-    db.set_pair_date(first, second, now)
+for pair in pairs: 
+    print(pair)
+    db.add_pair(*pair)
 
-save(db, "beanz_buddies.json")"""
+db.close()
 
+end = datetime.now()
 
-import os
-from sqlalchemy import create_engine, Column, String, Boolean
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
-import uuid
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Retrieve the database URI from environment variables
-DATABASE_URI = os.getenv('DATABASE_URI')
-
-# Create the SQLAlchemy engine
-engine = create_engine(DATABASE_URI)
-
-# Create a base class for declarative class definitions
-Base = declarative_base()
-
-# Define the User model
-class User(Base):
-    __tablename__ = 'users'
-    uuid = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    role = Column(String, nullable=False)
-    opt_out = Column(Boolean, default=False)
-
-# Create the users table
-Base.metadata.create_all(engine)
-
-# Create a session factory
-Session = sessionmaker(bind=engine)
-session = Session()
-
-# Insert sample data
-user1 = User(uuid=uuid.uuid4(), role='freshman', opt_out=False)
-user2 = User(uuid=uuid.uuid4(), role='upperclassman', opt_out=True)
-user3 = User(uuid=uuid.uuid4(), role='alumni', opt_out=False)
-
-session.add_all([user1, user2, user3])
-session.commit()
-
-# Query the data
-users = session.query(User).all()
-for user in users:
-    print(f'UUID: {user.uuid}, Role: {user.role}, Opt-Out: {user.opt_out}')
-
-# Close the session
-session.close()
+print(f"This took {end - start} seconds, by the way.")
