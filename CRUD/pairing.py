@@ -40,7 +40,7 @@ def is_good_swap(db: Database, pair1: tuple[str], pair2: tuple[str], now: date) 
 
     return score_next > score_now
 
-def pair_names(db: Database, names: list[str], now: date, trials: int = 100, swaps: int = 100):
+def generate_pairs(db: Database, names: list[str], now: date, trials: int = 100, swaps: int = 100):
     """
     Use a Monte Carlo simulation to generate a "good" pairing of
     all involved names. 

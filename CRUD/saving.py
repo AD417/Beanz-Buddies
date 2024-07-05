@@ -5,8 +5,11 @@ from CRUD.database import Database
 from CRUD.entry import Entry
 
 def load(filepath: str) -> Database:
-    with open(filepath, "r") as f:
-        data = json.load(f)
+    try:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return {}
 
     db = Database()
     for key in data:
