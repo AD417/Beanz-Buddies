@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import date
+import functools
 
 from sqlalchemy import and_, func
 
@@ -9,6 +10,29 @@ from CRUD.saving import SESSION
 
 class Database:
     """A basic CRUD system to store all pairing entries."""
+
+    def __init__(self: Database):
+        self.__cache = {}
+
+    def cache_result(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            # Create a cache key based on function arguments
+            cache_key = (func.__name__, args, frozenset(kwargs.items()))
+            
+            # Check if the result is already in the cache
+            if cache_key in self.__cache:
+                return self.__cache[cache_key]
+            
+            # Call the actual function and store the result in the cache
+            result = func(self, *args, **kwargs)
+            self.__cache[cache_key] = result
+            return result
+        return wrapper
+
+    def invalidate_cache(self: Database):
+        """Invalidates the cache, requiring future calls to actually be sent."""
+        self.__cache = {}
 
     # CREATE
 
@@ -22,9 +46,11 @@ class Database:
 
     def force_save(self: Database):
         SESSION.commit()
+        self.invalidate_cache()
 
     # READ
 
+    @cache_result
     def get_recent_pair(self: Database, first: str, second: str) -> Pairing | None:
         """
         Get the data regarding the most recent pairing of two members in 
@@ -41,6 +67,7 @@ class Database:
 
         return most_recent
     
+    @cache_result
     def get_all_pairs(self: Database, first: str, second: str) -> list[Pairing]:
         """Get all data involving this pair. This list is NOT sorted."""
         if first == second: return []
@@ -49,12 +76,14 @@ class Database:
                 .filter(Pairing.member2 in (first, second)) \
                 .all()
 
+    @cache_result
     def get_pairs_with(self: Database, name: str) -> list[Pairing]:
         """Get all pairings involving """
         return SESSION.query(Pairing) \
                 .filter(Pairing.member1 == name or Pairing.member2 == name) \
                 .all()
     
+    @cache_result
     def get_all_pairs_involving(self: Database, names: list[str]) -> list[Pairing]:
         """Get all pairs that only involve the names listed."""
         # I blame chatgpt when this breaks.
@@ -92,6 +121,7 @@ class Database:
 
     # Other stuff
 
+    @cache_result
     def pair_weight(self: Database, first: str, second: str, now: date) -> float:
         """Determine the weight given to a pair of people."""
         

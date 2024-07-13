@@ -1,65 +1,58 @@
-from CRUD import *
 from datetime import date
-from slack.read import *
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from CRUD import *
 
 from datetime import datetime
 
 start = datetime.now()
 
-def main():
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        api_calls = {
-            executor.submit(members_of_channel, CHANNEL_ID): 0,
-            executor.submit(members_of_group, FROSH_ID): 1,
-            executor.submit(members_of_group, ACTIVE_ID): 2
-        }
-        result = [None] * len(api_calls)
+db = Database()
 
-        for future in as_completed(api_calls):
-            index = api_calls[future]
-            try:
-                member_data = future.result()
-                result[index] = set(member_data)
-            except Exception as e:
-                raise Exception("API issue getting member info: ") from e
-            
-    
+names = [
+    "Benjamin Piro",
+    "Katie Koontz",
+    "Nidhi Baindur",
+    "Joe Abbate",
+    "Dani Saba",
+    "Joe Vita",
+    "Chrissy Espeleta",
+    "Connor Langa",
+    "Zachary Cox",
+    "Ian Kopke",
+    "Sam Cordry",
+    "Grant Hawerlander",
+    "Eva",
+    "Ekam",
+    "Ethan Ferguson",
+    "Mary Strodl",
+    "Vivian Hafener",
+    "Mirai Day",
+    "Asha Kadagala",
+    "Emma Schmidt",
+    "Gavin McConnell",
+    "Jason Koser",
+    "Jinna Smail",
+    "Joseph Issac",
+    "Matt Marafino",
+    "Will Hellinger",
+    "Wilson McDade",
+    "Adam Newlight",
+    "Darwin Tran",
+    "Tyler Samay",
+    "Ella Soccoli",
+    "Charlotte George",
+]
 
-    members, frosh, active = result
-    if not members:
-        print("Error getting members info.")
-        return
-    
-    alumni = members.difference(frosh, active)
-    frosh.intersection_update(members)
-    active.intersection_update(members)
-    
-    print("Freshmen:")
-    for member in get_multi_user_info(list(frosh)):
-        if not member:
-            print(f"Failed to get info for member.")
-            continue
+print(names)
 
-        print(member["real_name"])
+db.add_pair("Liriel Bryer", "Emily Caston")
 
-    print("\nUpperclassmen:")
-    for member in get_multi_user_info(list(active)):
-        if not member:
-            print(f"Failed to get info for member.")
-            continue
+pairs = generate_pairs(db, names, date.today())
 
-        print(member["real_name"])
+for pair in pairs: 
+    print(pair)
+    db.add_pair(*pair)
 
-    print("\nAlumni:")
-    for member in get_multi_user_info(list(alumni)):
-        if not member:
-            print(f"Failed to get info for member.")
-            continue
-
-        print(member["real_name"])
-
-main()
+db.close()
 
 end = datetime.now()
 
