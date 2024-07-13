@@ -1,4 +1,4 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests
 from dotenv import load_dotenv
 import os
@@ -86,7 +86,7 @@ def get_multi_user_info(user_ids):
         
         result = [None] * len(api_calls)
 
-        for future in api_calls:
+        for future in as_completed(api_calls):
             index = api_calls[future]
             try:
                 member_data = future.result()

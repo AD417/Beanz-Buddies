@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from functools import reduce
 from CRUD.database import Database
@@ -48,7 +49,7 @@ def generate_pairs(db: Database, names: list[str], now: date, trials: int = 100,
     best_pairs = []
     best_score = -1
 
-    for _ in range(trials):
+    def make_optimized_pair():
         pairs = single_pairing(db, names.copy(), now)
 
         for _ in range(swaps):
@@ -61,14 +62,21 @@ def generate_pairs(db: Database, names: list[str], now: date, trials: int = 100,
             pairs.remove(pair1)
             pairs.remove(pair2)
             pairs += [*zip(pair1, pair2)]
+        
+        return pairs
 
+    with ThreadPoolExecutor() as executor:
+        pair_makers = [executor.submit(make_optimized_pair) for _ in range(trials)]
 
-        score = pairing_score(db, pairs, now)
-        print(score)
+        for future in as_completed(pair_makers):
+            pairs = future.result()
 
-        if score <= best_score: continue
-        best_score = score
-        best_pairs = pairs
+            score = pairing_score(db, pairs, now)
+            print(score)
+
+            if score <= best_score: continue
+            best_score = score
+            best_pairs = pairs
 
     print(best_score)
-    return best_pairs#
+    return best_pairs
