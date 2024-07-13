@@ -4,7 +4,7 @@ import os
 
 load_dotenv()
 
-SLACK_TOKEN = os.getenv("SLACK_API_KEY")
+_SLACK_TOKEN = os.getenv("SLACK_API_KEY")
 CHANNEL_ID = os.getenv("BEANZ_CHANNEL_ID") # the ID of #beanz-buddies
 ACTIVE_ID = os.getenv("ACTIVE_ID") # Active User ID
 FROSH_ID = os.getenv("FROSH_ID") # Freshman User ID
@@ -17,7 +17,7 @@ def members_of_channel(channel_id):
         'limit': 1000  # Adjust limit as necessary
     }
     headers = {
-        'Authorization': f'Bearer {SLACK_TOKEN}'
+        'Authorization': f'Bearer {_SLACK_TOKEN}'
     }
     response = requests.get(url, headers=headers, params=params)
 
@@ -37,7 +37,7 @@ def members_of_group(user_group_id):
         'usergroup': user_group_id
     }
     headers = {
-        'Authorization': f'Bearer {SLACK_TOKEN}'
+        'Authorization': f'Bearer {_SLACK_TOKEN}'
     }
     response = requests.get(url, headers=headers, params=params)
     if response.status_code == 200:
@@ -56,7 +56,7 @@ def get_user_info(user_id):
         'user': user_id
     }
     headers = {
-        'Authorization': f'Bearer {SLACK_TOKEN}'
+        'Authorization': f'Bearer {_SLACK_TOKEN}'
     }
     response = requests.get(url, headers=headers, params=params)
 
