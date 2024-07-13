@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import requests
 from dotenv import load_dotenv
 import os
@@ -66,6 +67,33 @@ def get_user_info(user_id):
     
     data = response.json()
     if not data['ok']:
+        print(user_id)
         raise Exception(f"Error getting user info: {data['error']}")
     
     return data['user']
+
+def get_multi_user_info(user_ids):
+    """
+    Get user info for a lot of people simultaneously. 
+    Uses multithreading to run multiple API calls at once.
+    Returns a list of user info; each value maps to the relevant index
+    in the passed list.
+    """
+
+    with ThreadPoolExecutor(max_workers=len(user_ids)) as executor:
+        api_calls = {executor.submit(get_user_info, member): index 
+                     for index, member in enumerate(user_ids)}
+        
+        result = [None] * len(api_calls)
+
+        for future in api_calls:
+            index = api_calls[future]
+            try:
+                member_data = future.result()
+                result[index] = member_data
+            except Exception as e:
+                raise Exception(
+                    "Uncaught Exception during bulk member info access: "
+                    ) from e
+            
+    return result

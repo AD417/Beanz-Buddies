@@ -6,7 +6,7 @@ import json
 load_dotenv()
 
 _SLACK_TOKEN = os.getenv("SLACK_API_KEY")
-MIRAI_UUID = os.getenv("MIRAI_UUID")  # Replace with your user ID
+MIRAI_UUID = os.getenv("MIRAI_UUID")
 
 def create_group_chat(user_ids):
     """
