@@ -7,14 +7,14 @@ import enum
 # Create a base class for declarative class definitions
 Base = declarative_base()
 
-class Pairing(Base):
+class PairData(Base):
     __tablename__ = "pairings"
     id = Column(Integer, primary_key=True, autoincrement=True)
     member1 = Column(String, nullable=False)
     member2 = Column(String, nullable=False)
     date = Column(Date, nullable=False)
 
-    def weight(self: Pairing, now: date) -> float:
+    def weight(self: PairData, now: date) -> float:
         elapsed_time = now - self.last_meeting
 
         # If the last meeting was more recent, don't bother.

@@ -4,7 +4,7 @@ import functools
 
 from sqlalchemy import and_, func
 
-from CRUD.types import Pairing, User
+from CRUD.types import PairData, User
 from CRUD.saving import SESSION
 
 
@@ -36,11 +36,11 @@ class Database:
 
     # CREATE
 
-    def add_pair(self: Database, first: str, second: str, time: date = date.today) -> Pairing:
+    def add_pair(self: Database, first: str, second: str, time: date = date.today) -> PairData:
         """Add a match pair to the database."""
         if first == second: raise ValueError(f"Cannot pair a person '{first}' with themself!")
 
-        pair = Pairing(member1=first, member2=second, date=date.min)
+        pair = PairData(member1=first, member2=second, date=date.min)
         SESSION.add(pair)
         return pair
 
@@ -51,7 +51,7 @@ class Database:
     # READ
 
     @cache_result
-    def get_recent_pair(self: Database, first: str, second: str) -> Pairing | None:
+    def get_recent_pair(self: Database, first: str, second: str) -> PairData | None:
         """
         Get the data regarding the most recent pairing of two members in 
         the database.
@@ -59,57 +59,57 @@ class Database:
         """
         if first == second: return None
 
-        most_recent = SESSION.query(Pairing) \
-                .filter(Pairing.member1 in (first, second)) \
-                .filter(Pairing.member2 in (first, second)) \
-                .order_by(Pairing.date.desc()) \
+        most_recent = SESSION.query(PairData) \
+                .filter(PairData.member1 in (first, second)) \
+                .filter(PairData.member2 in (first, second)) \
+                .order_by(PairData.date.desc()) \
                 .first()
 
         return most_recent
     
     @cache_result
-    def get_all_pairs(self: Database, first: str, second: str) -> list[Pairing]:
+    def get_all_pairs(self: Database, first: str, second: str) -> list[PairData]:
         """Get all data involving this pair. This list is NOT sorted."""
         if first == second: return []
-        return SESSION.query(Pairing) \
-                .filter(Pairing.member1 in (first, second)) \
-                .filter(Pairing.member2 in (first, second)) \
+        return SESSION.query(PairData) \
+                .filter(PairData.member1 in (first, second)) \
+                .filter(PairData.member2 in (first, second)) \
                 .all()
 
     @cache_result
-    def get_pairs_with(self: Database, name: str) -> list[Pairing]:
-        """Get all pairings involving """
-        return SESSION.query(Pairing) \
-                .filter(Pairing.member1 == name or Pairing.member2 == name) \
+    def get_pairs_with(self: Database, name: str) -> list[PairData]:
+        """Get all pairings involving a specific person"""
+        return SESSION.query(PairData) \
+                .filter(PairData.member1 == name or PairData.member2 == name) \
                 .all()
     
     @cache_result
-    def get_all_pairs_involving(self: Database, names: list[str]) -> list[Pairing]:
+    def get_all_pairs_involving(self: Database, names: list[str]) -> list[PairData]:
         """Get all pairs that only involve the names listed."""
         # I blame chatgpt when this breaks.
         subquery = (
             SESSION.query(
-                Pairing.member1,
-                Pairing.member2,
-                func.max(Pairing.last_date).label('max_last_date')
+                PairData.member1,
+                PairData.member2,
+                func.max(PairData.last_date).label('max_last_date')
             )
-            .group_by(Pairing.member1, Pairing.member2)
+            .group_by(PairData.member1, PairData.member2)
             .subquery()
         )
 
         query = (
-            SESSION.query(Pairing)
+            SESSION.query(PairData)
             .join(
                 subquery,
                 and_(
-                    Pairing.member1 == subquery.c.member1,
-                    Pairing.member2 == subquery.c.member2,
-                    Pairing.last_date == subquery.c.max_last_date
+                    PairData.member1 == subquery.c.member1,
+                    PairData.member2 == subquery.c.member2,
+                    PairData.last_date == subquery.c.max_last_date
                 )
             )
             .filter(
-                Pairing.member1.in_(names),
-                Pairing.member2.in_(names)
+                PairData.member1.in_(names),
+                PairData.member2.in_(names)
             )
         )
 

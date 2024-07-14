@@ -80,7 +80,7 @@ def get_multi_user_info(user_ids):
     in the passed list.
     """
 
-    with ThreadPoolExecutor(max_workers=len(user_ids)) as executor:
+    with ThreadPoolExecutor(max_workers=min(len(user_ids), 64)) as executor:
         api_calls = {executor.submit(get_user_info, member): index 
                      for index, member in enumerate(user_ids)}
         

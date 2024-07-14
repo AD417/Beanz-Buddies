@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from functools import reduce
@@ -5,78 +6,111 @@ from CRUD.database import Database
 
 import random
 
+class Pairing(list):
+    ...
 
-def single_pairing(db: Database, names: list[str], now: date) -> list[tuple[str]]:
-    pairs = []
-    while len(names) >= 2:
-        first = random.choice(names)
-        names.remove(first)
-        weights = [db.pair_weight(first, second, now) for second in names]
+@dataclass(frozen=True)
+class PairingGenerator:
+    FROSH_PENALTY = 0.1
+    ALUMNI_PENALTY = 0.25
 
-        if sum(weights) == 0:
-            # We dun goofd
-            second = names[0]
-        else:
-            second = random.choices(names, weights, k=1)[0]
-        
-        pairs += [(first, second)]
-        names.remove(second)
+    # Maybe I don't need a class, but the number of relevant properties
+    #  Made this seem like a good idea.
+    frosh: set[str]
+    active: set[str]
+    alumni: set[str]
+    db: Database
+    now: date = date.today()
+
+    @property
+    def everyone(self) -> list[str]:
+        return list(set.union(self.frosh, self.active, self.alumni))
     
-    return pairs
+    def make_pairing(self) -> Pairing:
+        names = self.everyone
+        pairs = Pairing()
+        while len(names) >= 2:
+            first = random.choice(names)
+            names.remove(first)
+            weights = [self.db.pair_weight(first, second, self.now) for second in names]
 
-def pairing_score(db: Database, pairs: list[tuple[str]], now: date) -> float:
-    """
-    Generate a "score" for a pairing, based on how well all the pairs
-    coexist and don't result in recent pair repeats.
-    This is a value between 0 and 1; it may be extremely small. 
-    """
-    return reduce(lambda x, y: x * db.pair_weight(y[0], y[1], now), pairs, 1)
-
-def is_good_swap(db: Database, pair1: tuple[str], pair2: tuple[str], now: date) -> bool:
-    unique_names = set()
-    unique_names.update(pair1, pair2)
-    if len(unique_names) != 4: return False
-    score_now = db.pair_weight(pair1[0], pair1[1], now) * db.pair_weight(pair2[0], pair2[1], now)
-    score_next = db.pair_weight(pair1[0], pair2[0], now) * db.pair_weight(pair1[1], pair2[1], now)
-
-    return score_next > score_now
-
-def generate_pairs(db: Database, names: list[str], now: date, trials: int = 100, swaps: int = 100):
-    """
-    Use a Monte Carlo simulation to generate a "good" pairing of
-    all involved names. 
-    """
-    best_pairs = []
-    best_score = -1
-
-    def make_optimized_pair():
-        pairs = single_pairing(db, names.copy(), now)
-
-        for _ in range(swaps):
-            # Randomly pick 2 pairs.
-            pair1, pair2 = random.choices(pairs, k=2)
-            # Does swapping them improve the results, however marginally?
-            if not is_good_swap(db, pair1, pair2, now): continue
-            # If so, do it. 
-            # TODO: use a set instead of a list.
-            pairs.remove(pair1)
-            pairs.remove(pair2)
-            pairs += [*zip(pair1, pair2)]
+            if sum(weights) == 0:
+                # We dun goofd
+                second = names[0]
+            else:
+                second = random.choices(names, weights, k=1)[0]
+            
+            pairs += [(first, second)]
+            names.remove(second)
         
         return pairs
+    
+    def single_pair_score(self, pair: tuple[str]) -> float:
+        p1, p2 = pair
+        base_score = 1.0
+        if p1 in self.frosh and p2 in self.frosh:
+            base_score = PairingGenerator.FROSH_PENALTY
+        if p1 in self.alumni and p2 in self.alumni:
+            base_score = PairingGenerator.ALUMNI_PENALTY
+        
+        return base_score * self.db.pair_weight(p1, p2, self.now)
 
-    with ThreadPoolExecutor() as executor:
-        pair_makers = [executor.submit(make_optimized_pair) for _ in range(trials)]
 
-        for future in as_completed(pair_makers):
-            pairs = future.result()
+    def score_pairing(self, pairs: Pairing) -> float:
+        score = 1.0
+        for pair in pairs:
+            score *= self.single_pair_score(pair)
+        
+        return score
+    
+    def is_good_swap(self, pair1, pair2) -> bool:
+        unique_names = set()
+        unique_names.update(pair1, pair2)
+        if len(unique_names) != 4: return False
 
-            score = pairing_score(db, pairs, now)
-            print(score)
+        score_now = self.single_pair_score(pair1) * self.single_pair_score(pair2)
+        next1 = (pair1[0], pair2[0])
+        next2 = (pair1[1], pair2[1])
+        score_next = self.single_pair_score(next1) * self.single_pair_score(next2)
 
-            if score <= best_score: continue
-            best_score = score
-            best_pairs = pairs
+        return score_next > score_now
+    
+    def make_good_pairing(self, trials: int = 1000, swaps_per: int = 1000):
+        best_pairing: Pairing = None
+        best_score = -1
 
-    print(best_score)
-    return best_pairs
+        def make_optimized_pair():
+            pairs = self.make_pairing()
+
+            indices = [x for x in range(len(pairs))]
+
+            for _ in range(swaps_per):
+                # Randomly pick 2 pairs.
+                i1, i2 = random.sample(indices, k=2)
+                pair1 = pairs[i1]
+                pair2 = pairs[i2]
+                # Does swapping them improve the results, however marginally?
+                if not self.is_good_swap(pair1, pair2): continue
+                # If so, do it. 
+                next1, next2 = [*zip(pair1, pair2)]
+                pairs[i1] = next1
+                pairs[i2] = next2
+            
+            return pairs
+        
+        with ThreadPoolExecutor() as executor:
+            pair_makers = [executor.submit(make_optimized_pair) for _ in range(trials)]
+
+            for future in as_completed(pair_makers):
+                pairs = future.result()
+
+                score = self.score_pairing(pairs)
+                print(score)
+
+                if score <= best_score: continue
+                best_score = score
+                best_pairing = pairs
+
+                if best_score == 1.0: return best_pairing
+
+        return best_pairing

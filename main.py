@@ -1,58 +1,60 @@
 from datetime import date
 from CRUD import *
+from slack.read import *
 
 from datetime import datetime
 
 start = datetime.now()
 
-db = Database()
 
-names = [
-    "Benjamin Piro",
-    "Katie Koontz",
-    "Nidhi Baindur",
-    "Joe Abbate",
-    "Dani Saba",
-    "Joe Vita",
-    "Chrissy Espeleta",
-    "Connor Langa",
-    "Zachary Cox",
-    "Ian Kopke",
-    "Sam Cordry",
-    "Grant Hawerlander",
-    "Eva",
-    "Ekam",
-    "Ethan Ferguson",
-    "Mary Strodl",
-    "Vivian Hafener",
-    "Mirai Day",
-    "Asha Kadagala",
-    "Emma Schmidt",
-    "Gavin McConnell",
-    "Jason Koser",
-    "Jinna Smail",
-    "Joseph Issac",
-    "Matt Marafino",
-    "Will Hellinger",
-    "Wilson McDade",
-    "Adam Newlight",
-    "Darwin Tran",
-    "Tyler Samay",
-    "Ella Soccoli",
-    "Charlotte George",
-]
+def get_groups():
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        api_calls = {
+            executor.submit(members_of_channel, CHANNEL_ID): 0,
+            executor.submit(members_of_group, FROSH_ID): 1,
+            executor.submit(members_of_group, ACTIVE_ID): 2
+        }
+        result = [None] * len(api_calls)
 
-print(names)
+        for future in as_completed(api_calls):
+            index = api_calls[future]
+            try:
+                member_data = future.result()
+                result[index] = set(member_data)
+            except Exception as e:
+                raise Exception("API issue getting member info: ") from e
+            
+    return result
 
-db.add_pair("Liriel Bryer", "Emily Caston")
+def main():
+    members, frosh, active = get_groups()
+    if not members:
+        print("Error getting members info.")
+        return
 
-pairs = generate_pairs(db, names, date.today())
+    alumni = members.difference(frosh, active)
+    frosh.intersection_update(members)
+    active.intersection_update(members)
 
-for pair in pairs: 
-    print(pair)
-    db.add_pair(*pair)
+    db = Database()
 
-db.close()
+    pair_gen = PairingGenerator(frosh, active, alumni, db, now=date.today())
+
+    pairs = pair_gen.make_good_pairing()
+
+    uuids = pair_gen.everyone
+    names = get_multi_user_info(uuids)
+    lookup = {}
+    for uuid, name in zip(uuids, names):
+        lookup[uuid] = name["real_name"]
+
+    for p1, p2 in pairs:
+        print(f"({lookup[p1]}, {lookup[p2]})")
+        db.add_pair(p1, p2)
+
+    db.close()
+
+main()
 
 end = datetime.now()
 
