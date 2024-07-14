@@ -26,6 +26,27 @@ class PairingGenerator:
     def everyone(self) -> list[str]:
         return list(set.union(self.frosh, self.active, self.alumni))
     
+    def best_possible_score(self) -> float:
+        # Frosh without pairs
+        unpaired = len(self.frosh) - len(self.active)
+        if unpaired > 0:
+            # Frosh left -- pair with alumni. 
+            unpaired -= len(self.alumni)
+            if unpaired >= 0:
+                # Frosh still left...
+                return PairingGenerator.FROSH_PENALTY ** (unpaired / 2)
+            # Alumni left now
+            return PairingGenerator.ALUMNI_PENALTY ** (-unpaired / 2)
+        else:
+            # Upperclassmen left -- pair with alumni
+            unpaired = -unpaired
+            unpaired -= len(self.alumni)
+            if unpaired >= 0:
+                # Upperclassmen pair with themselves.
+                return 1
+            # Alumni left now.
+            return PairingGenerator.ALUMNI_PENALTY ** (-unpaired / 2)
+
     def make_pairing(self) -> Pairing:
         names = self.everyone
         pairs = Pairing()
@@ -78,6 +99,7 @@ class PairingGenerator:
     def make_good_pairing(self, trials: int = 1000, swaps_per: int = 1000):
         best_pairing: Pairing = None
         best_score = -1
+        max_score = self.best_possible_score()
 
         def make_optimized_pair():
             pairs = self.make_pairing()
@@ -111,6 +133,6 @@ class PairingGenerator:
                 best_score = score
                 best_pairing = pairs
 
-                if best_score == 1.0: return best_pairing
+                if best_score >= max_score: return best_pairing
 
-        return best_pairing
+        return best_pairing#
